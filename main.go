@@ -3,13 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/joho/godotenv"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
+
+	"github.com/joho/godotenv"
 )
 
 type ViaCep struct {
@@ -135,7 +136,7 @@ func cepHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Error loading .env file, continuing with environment variables")
 	}
 
 	port := os.Getenv("PORT")
