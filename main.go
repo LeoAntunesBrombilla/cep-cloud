@@ -82,7 +82,6 @@ func handleViaCep(w http.ResponseWriter, r *http.Request) (*ViaCep, error) {
 func handleWeatherApiCall(location string) (*WeatherResponse, error) {
 	locationScaped := url.QueryEscape(location)
 	apiKey := os.Getenv("API_KEY")
-	fmt.Sprintf(apiKey)
 	url := fmt.Sprintf("http://api.weatherapi.com/v1/current.json?key=%s&q=%s&aqi=no", apiKey, locationScaped)
 	resp, err := http.Get(url)
 	if err != nil {
