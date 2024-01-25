@@ -46,21 +46,16 @@ func isValidCEP(cep string) bool {
 	return matched
 }
 
-func handleViaCep(w http.ResponseWriter, r *http.Request) (*ViaCep, error) {
-	queryValues := r.URL.Query()
-	cep := queryValues.Get("cep")
-
+func getViaCepData(baseUrl, cep string) (*ViaCep, error) {
 	if cep == "" || !isValidCEP(cep) {
-		http.Error(w, "invalid zipcode", http.StatusUnprocessableEntity)
 		return nil, fmt.Errorf("invalid zipcode")
 	}
 
 	cepScaped := url.QueryEscape(cep)
-	urlFormated := fmt.Sprintf("http://viacep.com.br/ws/%s/json/", cepScaped)
+	urlFormated := fmt.Sprintf("%s/ws/%s/json/", baseUrl, cepScaped)
 
 	resp, err := http.Get(urlFormated)
 	if err != nil {
-		http.Error(w, "error in request", http.StatusInternalServerError)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -73,17 +68,16 @@ func handleViaCep(w http.ResponseWriter, r *http.Request) (*ViaCep, error) {
 	var viaCepResponse ViaCep
 	err = json.Unmarshal(body, &viaCepResponse)
 	if err != nil {
-		http.Error(w, "can not found zipcode", http.StatusNotFound)
 		return nil, err
 	}
 
 	return &viaCepResponse, nil
 }
 
-func handleWeatherApiCall(location string) (*WeatherResponse, error) {
+func handleWeatherApiCall(baseUrl, location string) (*WeatherResponse, error) {
 	locationScaped := url.QueryEscape(location)
 	apiKey := os.Getenv("API_KEY")
-	url := fmt.Sprintf("http://api.weatherapi.com/v1/current.json?key=%s&q=%s&aqi=no", apiKey, locationScaped)
+	url := fmt.Sprintf("%s?key=%s&q=%s&aqi=no", baseUrl, apiKey, locationScaped)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -105,14 +99,24 @@ func handleWeatherApiCall(location string) (*WeatherResponse, error) {
 }
 
 func cepHandler(w http.ResponseWriter, r *http.Request) {
-	responseCep, err := handleViaCep(w, r)
+	queryValues := r.URL.Query()
+	cep := queryValues.Get("cep")
+
+	responseCep, err := getViaCepData("http://viacep.com.br/", cep)
+
 	if err != nil {
+		http.Error(w, "invalid zipcode", http.StatusUnprocessableEntity)
 		return
 	}
 
-	weather, err := handleWeatherApiCall(responseCep.Localidade)
+	if responseCep.Localidade == "" {
+		http.Error(w, "can not find zipcode", http.StatusInternalServerError)
+		return
+	}
+
+	weather, err := handleWeatherApiCall("http://api.weatherapi.com/v1/current.json", responseCep.Localidade)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error fetching weather data", http.StatusInternalServerError)
 		return
 	}
 
@@ -124,7 +128,7 @@ func cepHandler(w http.ResponseWriter, r *http.Request) {
 
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error processing request", http.StatusInternalServerError)
 		return
 	}
 
